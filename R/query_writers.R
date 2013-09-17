@@ -119,7 +119,7 @@ join = function(select, view_spec, where, aliased) {
   if (length(where)) {
     wnames = names(where)
     where1 = where[intersect(wnames, names1)]
-    where1 = where[intersect(wnames, names1)]
+    where2 = where[intersect(wnames, names2)]
   }
 
   qa1 = qBuild(select1, t1, where1, aliased, wormhole=T)
