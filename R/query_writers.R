@@ -96,7 +96,7 @@ qBuild = function(select, from, where=NULL, aliased=NULL, wormhole=F) {
 	
 	if (substr(from, 1, 1) == '@') {
 		if (is.null(aliased))
-			aliased = rep(F, 26)
+			aliased = 0
 		
 		r = nest(select, from, where, aliased)
 
@@ -133,50 +133,48 @@ qBuild = function(select, from, where=NULL, aliased=NULL, wormhole=F) {
 }
 
 getWheres = function(where, fields) {
+	mapply(
+		function(expr, crit) {
+			if (is.list(crit)) {
+				op = crit[[1]]
+				crit = crit[[2]]
+			} else
+				op = '='
 
-  wo = mapply(
-    function(expr, crit) {
-      if (is.list(crit)) {
-        op = crit[[1]]
-        crit = crit[[2]]
-      } else
-        op = '='
-      
-      un = substr(op, 1, 1) == '!'
-      if (un)
-      	op = sub('^![ ]*', '', op)
+			un = substr(op, 1, 1) == '!'
+			if (un)
+				op = sub('^![ ]*', '', op)
 
-      if (class(crit) == 'Date')
-        crit = as.character(crit)
-      if (class(crit) == 'character')
-        crit = chrEscape(crit)
+			if (class(crit) == 'Date')
+				crit = as.character(crit)
+			if (class(crit) == 'character')
+				crit = chrEscape(crit)
 
-     	multi_crit = length(crit) > 1
-      if (is.null(crit)) {
-      	op = 'is'
-      	crit = 'NULL'
-      } else if (multi_crit) {
-	      crit = if (op == 'between') {
-	      		paste(crit, collapse=' and ')
-	    		} else
-	    			paste0('(', paste(crit, collapse=', '), ')')
-      }
+				multi_crit = length(crit) > 1
+			if (is.null(crit)) {
+				op = 'is'
+				crit = 'null'
+			} else if (multi_crit) {
+			   crit = if (op == 'between') {
+			   		paste(crit, collapse=' and ')
+			 		} else
+			 			paste0('(', paste(crit, collapse=', '), ')')
+			}
 
-      if (op == '=' && multi_crit)
-      	op = 'in'
-      if (un) {
-      	op = if (op == '=') {
-      			'<>'
-      		} else
-      			paste('not', op)
-      }
+			if (op == '=' && multi_crit)
+				op = 'in'
+			if (un) {
+				op = if (op == '=') {
+						'<>'
+					} else
+						paste('not', op)
+			}
 
-      paste(expr, op, crit)
-    },
-    fields[names(where)],
-    where
+			paste(expr, op, crit)
+		},
+		fields[names(where)],
+		where
   )
-  wo
 }
 
 nest = function(select, from, where, aliased) {
@@ -215,23 +213,24 @@ nest = function(select, from, where, aliased) {
 			#~ Build query 'i'
 			qb = qBuild(select_i, names[i], where_i, aliased, wormhole=T)
 			q_i = qb[['q']]
-
-			#~ Update alias
 			aliased = qb[['a']]
-			n = sum(aliased) + 1
-			if (n > 26)
-				stop('No letters left in alphabet. Perhaps a new table or two...')
-			a_i = letters[n]
-			aliased[n] = T
+
 
 			#~ Update main query
 			if (length(q)) {
 				type = toupper(join_i[['type']])
-				q = join(select, type, on_i, q, q_i, a_prev, a_i)
+				
+				#~ Update alias
+
+				aliased = aliased + 2
+				if (aliased > 26)
+					stop('No letters left in alphabet. Perhaps a new table or two...')
+
+				q = join(select, type, on_i, q, q_i,
+							letters[aliased-1], letters[aliased])
 			} else
 				q = q_i
-				
-			a_prev = a_i
+
 		}
 	}
 	list(q=q, a=aliased)

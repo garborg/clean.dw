@@ -1,1 +1,2 @@
 import(data.table)
+export(getFields, validateView, SQL)
