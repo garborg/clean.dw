@@ -34,6 +34,7 @@ indentWith = function(v, sep) {
 }
 
 getFields = function(name, combine=T, wormhole=F) {
+	cat('<FIELDS>')
 	if (substring(name, 1, 1) == '@') {
 		vs = viewSpec(name)
 		fields = lapply(names(vs), function(name) {
@@ -77,62 +78,58 @@ validateView = function(vs) {
 
 	if (length(r))
 		stop(paste(c('viewSpec errors:', r), collapse='\n'))
-	
-	'OK'	
 }
 
 SQL = function(select, from, where=NULL) {
-	print('<SQL>')
-	paste(qBuild(select=select, from=from, where=where), collapse='\n')
+	cat('<SQL>')
+	qb = qBuild(select=select, from=from, where=where)
+	cat('\n')
+	paste(qb, collapse='\n')
 }
 
-qBuild = function(select, from, where=NULL, aliased=NULL, wormhole=F) {
-	print('<QBUILD>')
+qBuild = function(select, from, where=NULL, aliased=0, wormhole=F) {
 	if (!wormhole) {
 		select = enquote(select)
 		if (length(where))
 			where = enquoteNames(where)
 	}
+
+	r = if (substr(from, 1, 1) == '@') {
+			nest(select, from, where, aliased)
+		} else
+			leaf(select, from, where, aliased)
+
+	if (wormhole) {
+		return(r)    
+	} else
+		return(r[['q']])
+}
+
+leaf = function(select, from, where, aliased) {
+	cat('\n<LEAF>')
+	fields = getFields(from)
+	fnames = names(fields)
+	if (!all(select %chin% fnames))
+		stop(paste('Selected fields:', paste(select, collapse=', '),
+					'don\'t match options:.', paste(fnames, collapse=', '),
+					sep='\n'))
+
+	selects = fields[select]
+	select_strs = paste(selects, 'AS', names(selects))
+
+	wheres = if (length(where))
+		c('WHERE', indentWith(getWheres(where, fields), ' AND'))
 	
-	if (substr(from, 1, 1) == '@') {
-		if (is.null(aliased))
-			aliased = 0
-		
-		r = nest(select, from, where, aliased)
-
-	} else {
-		fields = getFields(from)
-		fnames= names(fields)
-		if (!all(select %chin% fnames))
-			stop(paste('Selected fields:', paste(select, collapse=', '),
-						  'don\'t match options:.', paste(fnames, collapse=', '),
-						  sep='\n'))
-
-		selects = fields[select]
-		select_strs = paste(selects, 'AS', names(selects))
-
-		wheres = if (length(where))
-			c('WHERE', indentWith(getWheres(where, fields), ' AND'))
-		
-		r = list(
-			q=c('SELECT',
+	list(	q=c(	'SELECT',
 					indentWith(select_strs, ','),
 					'FROM',
 					indentWith(from, ''),
-					wheres
-				),
-			a=aliased
-		)
-	}
-	
-	if (wormhole) {
-		return(r)    
-	} else {
-		return(r[['q']])
-	}
+					wheres),
+			a=aliased)
 }
 
 getWheres = function(where, fields) {
+	cat('<WHERES>')
 	mapply(
 		function(expr, crit) {
 			if (is.list(crit)) {
@@ -145,7 +142,7 @@ getWheres = function(where, fields) {
 			if (un)
 				op = sub('^![ ]*', '', op)
 
-			if (class(crit) == 'Date')
+			if (inherits(crit, 'Date'))
 				crit = as.character(crit)
 			if (class(crit) == 'character')
 				crit = chrEscape(crit)
@@ -155,10 +152,10 @@ getWheres = function(where, fields) {
 				op = 'is'
 				crit = 'null'
 			} else if (multi_crit) {
-			   crit = if (op == 'between') {
-			   		paste(crit, collapse=' and ')
-			 		} else
-			 			paste0('(', paste(crit, collapse=', '), ')')
+				crit = if (op == 'between') {
+						paste(crit, collapse=' and ')
+					} else
+						paste0('(', paste(crit, collapse=', '), ')')
 			}
 
 			if (op == '=' && multi_crit)
@@ -178,73 +175,93 @@ getWheres = function(where, fields) {
 }
 
 nest = function(select, from, where, aliased) {
-	print('<NEST>')
+	cat('\n<NEST>')
 	view_spec = viewSpec(from)
 	names = names(view_spec)
 	fields = getFields(from, combine=F)
 
-	seq = seq_along(fields)
-
-	if (length(where))
-		wnames = names(where)
+	set = lookAhead(select, where, fields, view_spec)
 
 	q = NULL
-	for (i in seq) {
-		fields_i = fields[[i]]
-		hide_i = enquote(view_spec[[i]][['hide']])
-		fields_i = fields_i[!names(fields_i) %chin% hide_i]
+	join_select = NULL
+	for (i in seq_along(set)) {
 
+		iset = set[[i]]
 
-		join_i = view_spec[[i]][['join']]
-		on_i = enquote(join_i[['on']])
-
-		#~ Divy selects and wheres
-		select_i = union(on_i, intersect(select, fields_i))
-		other_i = setdiff(select_i, on_i)
-
-		where_i = if (length(where))
-			where[intersect(wnames, fields_i)]
-
-		#~ Join if you have to
-		lazy = isTRUE(join_i[['lazy']])
-
-		if (!lazy || length(other_i) || length(where_i)) {
+		if (!is.null(iset)) {
 
 			#~ Build query 'i'
-			qb = qBuild(select_i, names[i], where_i, aliased, wormhole=T)
+			qb = qBuild(iset[['select']], names[i], iset[['where']],
+							aliased, wormhole=T)
 			q_i = qb[['q']]
 			aliased = qb[['a']]
 
-
 			#~ Update main query
+			join_select = union(join_select, iset[['join_select']])
 			if (length(q)) {
-				type = toupper(join_i[['type']])
+				type = toupper(iset[['type']])
 				
 				#~ Update alias
-
 				aliased = aliased + 2
 				if (aliased > 26)
 					stop('No letters left in alphabet. Perhaps a new table or two...')
 
-				q = join(select, type, on_i, q, q_i,
-							letters[aliased-1], letters[aliased])
+				q = join(union(join_select, iset[['join_ahead']]), type, 
+					iset[['on']], q, q_i, letters[aliased-1], letters[aliased])
 			} else
 				q = q_i
-
 		}
 	}
 	list(q=q, a=aliased)
 }
 
+lookAhead = function(select, where, fields, view_spec) {
+	cat('<LOOKAHEAD>')
+  join_ahead = NULL
+  joins = NULL
+  r = vector('list', length(fields))
+  if (length(where))
+	 wnames = names(where)
+  for (i in rev(seq_along(fields))) {
+	 fields_i = fields[[i]]
+	 hide_i = enquote(view_spec[[i]][['hide']])
+	 fields_i = fields_i[!names(fields_i) %chin% hide_i]
+	 
+	 
+	 join_i = view_spec[[i]][['join']]
+	 on_i = enquote(join_i[['on']])
+	 
+	 #~ Divy selects and wheres
+	 join_select = intersect(select, fields_i)
+	 later_select = intersect(join_ahead, fields_i)
+ 
+	 select_i = union(on_i, union(join_select, later_select))
+	 select_other = setdiff(select_i, on_i)
+	 
+	 where_i = if (length(where))
+		where[intersect(wnames, fields_i)]
+	 where_other = setdiff(where_i, on_i)
+	 
+	 #~ Join if you have to
+	 lazy = isTRUE(join_i[['lazy']])
+	 
+	 if (!lazy || length(select_other) || length(where_other)) {
+		r[[i]] = list(type=join_i[['type']], on=on_i, join_select=join_select,
+			join_ahead=join_ahead, select=select_i, where=where_i)
+		join_ahead = c(join_ahead, on_i)
+	 }
+  }
+  return(r)
+}
+
 join = function(select, type, on, q1, q2, a1, a2) {
-	print('<JOIN>')
+	cat('\n<JOIN>')
 	for (s in intersect(on, select)) {
 		newsel = switch(type,
 			full=paste('case', tf(a1, s), 'when null then', tf(a2, s),
 						  'else', tf(a1, s),  'end AS', s),
 			right=tf(a2, s),
-			tf(a1, s)
-		)
+			tf(a1, s))
 		
 		select[match(s, select)] = newsel
 	}
@@ -259,7 +276,7 @@ join = function(select, type, on, q1, q2, a1, a2) {
 			'(',
 			indentWith(q1, ''),
 			paste(') AS', a1),
-			paste(type, "JOIN ("),
+			paste(type, 'JOIN ('),
 			indentWith(q2, ''),
 			paste(') AS', a2),
 			'ON',
