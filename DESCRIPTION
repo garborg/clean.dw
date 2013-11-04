@@ -5,9 +5,9 @@ Version: 0.1.2
 Author: Sean Garborg <sean.garborg@gmail.com>
 Maintainer: Sean Garborg <sean.garborg@gmail.com>
 Depends:
-    R (>= 3.0.0)
+    R
 Imports:
-    data.table (>= 1.8.8)
+    data.table
 License: MIT | file LICENSE
 Collate:
     'clean_dw-package.r'
