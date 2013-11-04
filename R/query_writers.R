@@ -1,5 +1,3 @@
-#library(data.table)
-
 chrEscape = function(chr) {
 	if (length(chr)) {
 		paste0("'", gsub("'", "''", chr), "'")
@@ -19,22 +17,20 @@ enquoteNames = function(x) {
 	x
 }
 
-namesAsVals = function(x) {
-	x = names(x)
-	setattr(x, 'names', x)  
-}
-
 tf = function(table, field) {
 	paste0(table, '.', field)
 }
 
+indent = function() {
+	'   '
+}
+
 indentWith = function(v, sep) {
 	if (lv <- length(v))
-		paste0('  ', v, c(rep_len(sep, lv-1), ''))
+		paste0(indent(), v, c(rep_len(sep, lv-1), ''))
 }
 
 getFields = function(name, combine=T, wormhole=F) {
-	cat('<FIELDS>')
 	if (substring(name, 1, 1) == '@') {
 		vs = viewSpec(name)
 		fields = lapply(names(vs), function(name) {
@@ -80,11 +76,72 @@ validateView = function(vs) {
 		stop(paste(c('viewSpec errors:', r), collapse='\n'))
 }
 
-SQL = function(select, from, where=NULL) {
+SQL = function(select, from, where=NULL, groupby=NULL) {
 	cat('<SQL>')
-	qb = qBuild(select=select, from=from, where=where)
+	q = qBuild(select=union(groupby, select), from=from, where=where)
+
+	if (!is.null(groupby))
+		q = groupify(q, select, groupby)
+
 	cat('\n')
-	paste(qb, collapse='\n')
+
+	paste(q, collapse='\n')
+}
+
+groupify = function(q, select, groupby) {
+	cat('\n<GROUP>')
+
+	end_line = match('FROM', q) - 1
+	if (is.na(end_line))
+		stop("Didn't find 'FROM'.")
+	selects = q[1:end_line]
+
+	r = paste0('^', indent(), '((.+) AS |([a-z][.]))?"([a-z][a-z0-9_]*)",?$')
+	
+	fields = sub(r, '\\4', selects)
+	exprs = sub(r, '\\2', selects)
+	exprs = ifelse( nzchar(exprs), 
+		exprs,
+		paste0(sub(r, '\\3', selects), enquote(fields)))
+
+	#~ Sub selects
+	to_aggr = select[!select %chin% groupby]
+	how_aggr = names(to_aggr)
+	if (is.null(how_aggr))
+		how_aggr = character(length(to_aggr))
+
+	for (i in seq_along(fields)) {
+		matches = ( to_aggr == fields[i] )
+		if (any(matches)) {
+
+			new = NULL
+			for (j in which(matches)) {
+				field = to_aggr[j]
+				directions = how_aggr[j]
+
+				name = op = ''
+				if (nzchar(directions)) {
+					r = '^(([^.]*)[.])?([^.]*)$'
+					if (!grepl(r, directions))
+						stop(sprintf("Invalid name (%s) for field '%s'",
+							directions, field))
+
+					name = sub(r, '\\2', directions)
+					op = sub(r, '\\3', directions)
+				}
+				if (!nzchar(name))
+					name = field
+				if (!nzchar(op))
+					op = 'sum'
+
+				line = paste0(indent(), op, '(', exprs[i], ') AS "', name, '"')
+				new = if (length(new)) paste0(new, ',\n', line) else line
+			}
+			q[i] = new
+		}
+	}
+
+	c(q, paste('GROUP BY', paste(enquote(groupby), collapse=', ')))
 }
 
 qBuild = function(select, from, where=NULL, aliased=0, wormhole=F) {
@@ -99,10 +156,7 @@ qBuild = function(select, from, where=NULL, aliased=0, wormhole=F) {
 		} else
 			leaf(select, from, where, aliased)
 
-	if (wormhole) {
-		return(r)    
-	} else
-		return(r[['q']])
+	return( if (wormhole) r else r[['q']] )
 }
 
 leaf = function(select, from, where, aliased) {
@@ -124,8 +178,8 @@ leaf = function(select, from, where, aliased) {
 					indentWith(select_strs, ','),
 					'FROM',
 					indentWith(from, ''),
-					wheres),
-			a=aliased)
+					wheres ),
+			a=aliased )
 }
 
 getWheres = function(where, fields) {
@@ -147,24 +201,25 @@ getWheres = function(where, fields) {
 			if (class(crit) == 'character')
 				crit = chrEscape(crit)
 
-				multi_crit = length(crit) > 1
+			multi_crit = length(crit) > 1
 			if (is.null(crit)) {
 				op = 'is'
 				crit = 'null'
 			} else if (multi_crit) {
 				crit = if (op == 'between') {
 						paste(crit, collapse=' and ')
-					} else
+					} else {
+						if (op == 'like')
+							op = 'like any'
 						paste0('(', paste(crit, collapse=', '), ')')
+					}
+					
 			}
 
 			if (op == '=' && multi_crit)
 				op = 'in'
 			if (un) {
-				op = if (op == '=') {
-						'<>'
-					} else
-						paste('not', op)
+				op = if (op == '=') '<>' else paste('not', op)
 			}
 
 			paste(expr, op, crit)
@@ -217,41 +272,45 @@ nest = function(select, from, where, aliased) {
 
 lookAhead = function(select, where, fields, view_spec) {
 	cat('<LOOKAHEAD>')
-  join_ahead = NULL
-  joins = NULL
-  r = vector('list', length(fields))
-  if (length(where))
-	 wnames = names(where)
-  for (i in rev(seq_along(fields))) {
-	 fields_i = fields[[i]]
-	 hide_i = enquote(view_spec[[i]][['hide']])
-	 fields_i = fields_i[!names(fields_i) %chin% hide_i]
-	 
-	 
-	 join_i = view_spec[[i]][['join']]
-	 on_i = enquote(join_i[['on']])
-	 
-	 #~ Divy selects and wheres
-	 join_select = intersect(select, fields_i)
-	 later_select = intersect(join_ahead, fields_i)
- 
-	 select_i = union(on_i, union(join_select, later_select))
-	 select_other = setdiff(select_i, on_i)
-	 
-	 where_i = if (length(where))
+
+	if (length(where))
+		wnames = names(where)
+
+	join_ahead = joins = NULL
+	r = vector('list', length(fields))
+
+
+	for (i in rev(seq_along(fields))) {
+		fields_i = fields[[i]]
+		hide_i = enquote(view_spec[[i]][['hide']])
+		fields_i = fields_i[!names(fields_i) %chin% hide_i]
+
+
+		join_i = view_spec[[i]][['join']]
+		on_i = enquote(join_i[['on']])
+
+		#~ Divy selects and wheres
+		join_select = intersect(select, fields_i)
+		later_select = intersect(join_ahead, fields_i)
+
+		select_i = union(on_i, union(join_select, later_select))
+		select_other = setdiff(select_i, on_i)
+
+		where_i = if (length(where))
 		where[intersect(wnames, fields_i)]
-	 where_other = setdiff(where_i, on_i)
-	 
-	 #~ Join if you have to
-	 lazy = isTRUE(join_i[['lazy']])
-	 
-	 if (!lazy || length(select_other) || length(where_other)) {
-		r[[i]] = list(type=join_i[['type']], on=on_i, join_select=join_select,
-			join_ahead=join_ahead, select=select_i, where=where_i)
-		join_ahead = c(join_ahead, on_i)
-	 }
-  }
-  return(r)
+		where_other = setdiff(where_i, on_i)
+
+		#~ Join if you have to
+		lazy = isTRUE(join_i[['lazy']])
+
+		if (!lazy || length(select_other) || length(where_other)) {
+			r[[i]] = list(type=join_i[['type']], on=on_i, join_select=join_select,
+				join_ahead=join_ahead, select=select_i, where=where_i)
+			join_ahead = c(join_ahead, on_i)
+		}
+	}
+
+	return(r)
 }
 
 join = function(select, type, on, q1, q2, a1, a2) {
@@ -284,4 +343,3 @@ join = function(select, type, on, q1, q2, a1, a2) {
 		), '')
 	)
 }
-

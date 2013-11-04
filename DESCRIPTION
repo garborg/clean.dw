@@ -1,5 +1,5 @@
-Package: maddw
-Title: Utility for working with crufty data warehouses.
+Package: clean_dw
+Title: Civilize rigid, crufty data warehouses.
 Description: 
 Version: 0.1.2
 Author: Sean Garborg <sean.garborg@gmail.com>
@@ -10,5 +10,5 @@ Imports:
     data.table (>= 1.8.8)
 License: MIT | file LICENSE
 Collate:
-    'maddw-package.r'
-    'query_writers.R'
+    'clean_dw-package.r'
+    'query_writers.r'

@@ -1,6 +1,6 @@
-#' maddw
+#' clean_dw
 #'
-#' @name maddw
+#' @name clean_dw
 #' @docType package
 #' @import data.table
 NULL
