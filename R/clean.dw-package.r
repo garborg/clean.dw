@@ -1,6 +1,6 @@
-#' clean_dw
+#' clean.dw
 #'
-#' @name clean_dw
+#' @name clean.dw
 #' @docType package
 #' @import data.table
 NULL

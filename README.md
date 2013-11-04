@@ -5,9 +5,9 @@ Civilize rigid, crufty data warehouses.
 ## Installation
 ```r
 library(devtools)
-install_github('clean_dw', 'garborg')
+install_github('clean.dw', 'garborg')
 
-# library(clean_dw)
+# library(clean.dw)
 ```
 
 ## Curation

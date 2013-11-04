@@ -10,5 +10,5 @@ Imports:
     data.table
 License: MIT + file LICENSE
 Collate:
-    'clean_dw-package.r'
-    'query_writers.r'
+    'clean.dw-package.r'
+    'query_writers.R'
