@@ -1,4 +1,4 @@
-Package: clean_dw
+Package: clean.dw
 Title: Civilize rigid, crufty data warehouses.
 Description: 
 Version: 0.1.2
@@ -8,7 +8,7 @@ Depends:
     R (>= 3.0.0)
 Imports:
     data.table
-License: MIT | file LICENSE
+License: MIT + file LICENSE
 Collate:
     'clean_dw-package.r'
     'query_writers.r'
