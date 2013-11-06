@@ -137,6 +137,8 @@ groupify = function(q, select, groupby) {
 				line = paste0(indent(), op, '(', exprs[i], ') AS "', name, '"')
 				new = if (length(new)) paste0(new, ',\n', line) else line
 			}
+			if (i != end_line)
+				new = paste0(new, ',')
 			q[i] = new
 		}
 	}
