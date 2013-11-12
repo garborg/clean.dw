@@ -76,8 +76,8 @@ w = list(	date = list('>', last_months_end),
 			cost = list('<', 10) )
 
 w_place = list( size = 'big' )
-w_test = list( test = c(1, 2, 7) )
-```
+
+```w_test = list( test = c(1, 2, 7) )
 
 Basic:
 ```r
@@ -216,7 +216,7 @@ SELECT
    "action",
    "reaction",
    sum("kpi1") AS "kpi1",
-   count("kpi1") AS "count"
+   count("kpi1") AS "count",
    avg("kpi2") AS "kpi2",
    min("kpi2") AS "min_kpi2"
 FROM
