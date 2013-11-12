@@ -30,6 +30,7 @@ indentWith = function(v, sep) {
 		paste0(indent(), v, c(rep_len(sep, lv-1), ''))
 }
 
+#' @export
 getFields = function(name, combine=T, wormhole=F) {
 	if (substring(name, 1, 1) == '@') {
 		vs = viewSpec(name)
@@ -51,6 +52,7 @@ getFields = function(name, combine=T, wormhole=F) {
 	}
 }
 
+#' @export
 validateView = function(vs) {
 	names = names(vs)
 	fields = lapply(names, getFields, wormhole=T)
@@ -76,6 +78,7 @@ validateView = function(vs) {
 		stop(paste(c('viewSpec errors:', r), collapse='\n'))
 }
 
+#' @export
 SQL = function(select, from, where=NULL, groupby=NULL) {
 	cat('<SQL>')
 	q = qBuild(select=union(groupby, select), from=from, where=where)
