@@ -97,12 +97,13 @@ groupify = function(q, select, groupby) {
 	selects = q[1:end_line]
 
 	r = paste0('^', indent(), '((.+) AS |([a-z][.]))?"([a-z][a-z0-9_]*)",?$')
-	
+
 	fields = sub(r, '\\4', selects)
+	preps = sub(r, '\\3', selects)
 	exprs = sub(r, '\\2', selects)
 	exprs = ifelse( nzchar(exprs), 
 		exprs,
-		paste0(sub(r, '\\3', selects), enquote(fields)))
+		paste0(preps, enquote(fields)))
 
 	#~ Sub selects
 	to_aggr = select[!select %chin% groupby]
@@ -143,7 +144,8 @@ groupify = function(q, select, groupby) {
 		}
 	}
 
-	c(q, paste('GROUP BY', paste(enquote(groupby), collapse=', ')))
+	c(q, paste('GROUP BY', 
+		paste0(preps[match(groupby, fields)], enquote(groupby), collapse=', ')))
 }
 
 qBuild = function(select, from, where=NULL, aliased=0, wormhole=F) {
