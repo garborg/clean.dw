@@ -77,7 +77,8 @@ w = list(	date = list('>', last_months_end),
 
 w_place = list( size = 'big' )
 
-```w_test = list( test = c(1, 2, 7) )
+w_test = list( test = c(1, 2, 7) )
+```
 
 Basic:
 ```r
