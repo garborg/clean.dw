@@ -47,16 +47,18 @@ viewSpec = function(name) {
 stripQuery = function(x) {
     gsub("^[ ]|[ ]$", "", gsub("[\r\n\t ]+", " ", x))
 }
+
 queriesEqual = function(x, y) {
     stripQuery(x) == stripQuery(y)
 }
 
+
 today = as.Date("2013-10-31")
 last_months_end = today - as.POSIXlt(today)$mday
-w = list(date = list('>', last_months_end),
+w = AND(date = list('>', last_months_end),
          cost = list('<', 10))
-w_place = list(size = 'big')
-w_test = list(test = c(1, 2, 7))
+w_place = AND(size = 'big')
+w_test = AND(test = c(1, 2, 7))
 
 test_that("SQL handles raw table", {
     ref = "SELECT
@@ -180,7 +182,7 @@ test_that("SQL handles complex view", {
 
     q = SQL(select = c( "date", "id", "action", "reaction", "kpi1", "kpi2"),
             from = "@reactions",
-            where = c(w, w_place, w_test))
+            where = AND(w, w_place, w_test))
 
     expect_true(queriesEqual(q, ref))
 })
@@ -257,8 +259,53 @@ test_that("SQL handles grouping", {
 
     q = SQL(select = c('kpi1', avg='kpi2', min_kpi2.min='kpi2', count.count='kpi1'),
             from = '@reactions',
-            where = c(w, w_place, w_test),
+            where = AND(w, w_place, w_test),
             groupby = c('id', 'action', 'reaction'))
+
+    expect_true(queriesEqual(q, ref))
+})
+
+test_that("SQL handles OR", {
+    ref = "SELECT
+       cast(substring(full_place, 1, 3) as integer) AS \"place\"
+       FROM
+          dw2.tb_plc
+       WHERE
+          char_bh = 'big' OR
+          cost > 100000"
+
+    wo = OR(size="big", cost=list(">", 100000))
+    q = SQL(select='place', from='@place', where=wo)
+
+    expect_true(queriesEqual(q, ref))
+})
+
+test_that("SQL handles cross-table OR", {
+    ref = "SELECT
+       a.\"place\"
+       FROM
+       (
+          SELECT
+             cast(substring(full_place, 1, 3) as integer) AS \"place\",
+             char_bh AS \"size\"
+          FROM
+             dw2.tb_plc
+       ) AS a
+       LEFT JOIN (
+          SELECT
+             test_key mod 1000 AS \"place\",
+             floor(test_key / 1000) AS \"test\"
+          FROM
+             dw2.tb_plc2
+       ) AS b
+       ON
+          a.\"place\" = b.\"place\"
+       WHERE
+          \"size\" = 'big' OR
+          \"test\" in (1, 2, 7)"
+
+
+    q = SQL(select='place', from='@place', where=OR(w_place, w_test))
 
     expect_true(queriesEqual(q, ref))
 })

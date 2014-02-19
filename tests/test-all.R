@@ -1,2 +1,3 @@
 library(testthat)
-test_check("clean.dw")
+library(clean.dw)
+test_package("clean.dw")

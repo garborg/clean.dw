@@ -4,6 +4,6 @@
 \alias{clean.dw-package}
 \title{clean.dw}
 \description{
-  clean.dw
+clean.dw
 }
 

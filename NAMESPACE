@@ -1,3 +1,5 @@
+export(AND)
+export(OR)
 export(SQL)
 export(getFields)
 export(validateView)

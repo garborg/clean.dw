@@ -1,6 +1,6 @@
 Package: clean.dw
 Title: Civilize rigid, crufty data warehouses.
-Description: 
+Description: Civilize rigid, crufty data warehouses.
 Version: 0.1.3
 Author: Sean Garborg <sean.garborg@gmail.com>
 Maintainer: Sean Garborg <sean.garborg@gmail.com>
@@ -11,6 +11,3 @@ Imports:
 Suggests:
     testthat
 License: MIT + file LICENSE
-Collate:
-    'clean.dw-package.r'
-    'query_writers.R'
