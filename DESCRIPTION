@@ -8,6 +8,8 @@ Depends:
     R (>= 3.0.0)
 Imports:
     data.table
+Suggests:
+    testthat
 License: MIT + file LICENSE
 Collate:
     'clean.dw-package.r'
