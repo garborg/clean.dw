@@ -309,3 +309,33 @@ test_that("SQL handles cross-table OR", {
 
     expect_true(queriesEqual(q, ref))
 })
+
+test_that("SQL & anyRow handle complex where clause", {
+    ref = "SELECT
+       a.\"place\"
+       FROM
+       (
+          SELECT
+             cast(substring(full_place, 1, 3) as integer) AS \"place\",
+             char_bh AS \"size\"
+          FROM
+             dw2.tb_plc
+       ) AS a
+       LEFT JOIN (
+          SELECT
+             test_key mod 1000 AS \"place\",
+             floor(test_key / 1000) AS \"test\"
+          FROM
+             dw2.tb_plc2
+       ) AS b
+       ON
+          a.\"place\" = b.\"place\"
+       WHERE
+          \"size\" = 'big' OR
+          \"test\" in (1, 2, 7)"
+
+
+    q = SQL(select='pla????????ce', from='@place', where=OR(w_place, w_test))
+
+    expect_true(queriesEqual(q, ref))
+})

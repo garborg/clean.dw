@@ -1,51 +1,18 @@
-#' @export
-getFields = function(name, combine=TRUE, wormhole=FALSE) {
-    if (substring(name, 1, 1) == '@') {
-        vs = viewSpec(name)
-        fields = lapply(names(vs), function(name) {
-            all = getFields(name, wormhole=TRUE)
-            hide = enquote(vs[[name]]$hide)
-            all[!names(all) %chin% hide]
-        })
-        if (combine || wormhole)
-            fields = unlist(fields)
-        fields
-    } else {
-        rf = enquoteNames(tableFields(name))
-        if (wormhole) {
-            rf = names(rf)
-            setattr(rf, 'names', rf)
-        }
-        rf
-    }
-}
-
-#' @export
-validateView = function(vs) {
-    names = names(vs)
-    fields = lapply(names, getFields, wormhole=TRUE)
-
-    prev_fields = fields[[1]]
-    r = NULL
-    for (i in seq_along(fields)[-1]) {
-        i_fields = fields[[i]]
-        overlap = intersect(prev_fields, i_fields)
-        on = enquote(vs[[i]]$join$on)
-        if (!setequal(overlap, on)) {
-            ri = sprintf("Overlap with '%s' (%s) doesn't match key (%s)",
-                         names(i),
-                         paste(overlap, collapse=', '),
-                         paste(on, collapse=', '))
-            r = c(r, ri)
-        }
-        prev_fields = union(prev_fields, i_fields)
-    }
-    r
-
-    if (length(r))
-        stop(paste(c('viewSpec errors:', r), collapse='\n'))
-}
-
+#' Let me write your queries for you.
+#'
+#' \code{SQL} uses functions \code{tableFields} and \code{viewSpec} from the 
+#'   calling scope to construct queries from simple arguments.
+#'
+#' @param select Field names.
+#' @param from  'db.tablename' or '@@viewname', corresponding to an entry in
+#'   \code{tableFields} or \code{viewSpec}.
+#' @param where An \code{AND} or \code{OR} object.
+#' @param groupby Optional, vector of field names. If provided, elements of
+#'   select not in \code{groupby} will have an aggregate function applied.
+#'   Those elements may be named in the select argument as follows:
+#'   '', '[new name].[function], '[new name].', '.[function]', or '[function]'.
+#'   Defaults: '[old name].[sum]'
+#' @return Query string.
 #' @export
 SQL = function(select, from, where=NULL, groupby=NULL) {
 
@@ -199,9 +166,8 @@ nest = function(select, from, where, aliased) {
 
 subsetWhere = function(where, bool) {
     if (any(bool)) {
-        s = sapply(where, `[`, bool, simplify=FALSE)
-        attr(s$vals, "AND_OR") = attr(where$vals, "AND_OR")
-        s
+        structure(sapply(where, `[`, bool, simplify=FALSE),
+                  class = class(where$vals))
     }
 }
 

@@ -55,7 +55,6 @@ Loaded by user, or wrapper. See examples above for format.
 Takes the name of a table or view, returns available fields and their definitions.
 * `name` - (required) 'db.tablename' or '@viewname'.
 * `combine` - (default `TRUE`) if `FALSE`, returns a list of lists split by source table.
-* `wormhole` - (for internal use only).
 
 ## Present Limitations
 
@@ -164,7 +163,7 @@ FROM
         a."place" = b."place"
 ```
 
-Lazy Join (in)Action:
+Lazy Join (In)Action:
 ```s
 SQL(select = 'place',
     from = '@place',

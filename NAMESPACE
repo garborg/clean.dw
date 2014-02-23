@@ -1,6 +1,7 @@
 export(AND)
 export(OR)
 export(SQL)
+export(anyRow)
 export(getFields)
 export(validateView)
 import(data.table)
