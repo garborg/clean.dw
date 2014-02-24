@@ -38,6 +38,9 @@ install_github('clean.dw', 'garborg')
      -
 * `AND`/`OR` arguments must be unnamed, list/vector arguments must be named
 
+### `anyRow`
+* Takes a `data.table` and translates it into an efficiently nested `AND`/`OR` object that requires that all values of at least one row must be satisfied.
+
 ### `viewSpec`
 Loaded by user, or wrapper. See example below for format.
 * `hide` - currently name abiguities are resolved by by hiding all but one.

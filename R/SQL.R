@@ -165,10 +165,10 @@ nest = function(select, from, where, aliased) {
 }
 
 subsetWhere = function(where, bool) {
-    if (any(bool)) {
-        structure(sapply(where, `[`, bool, simplify=FALSE),
-                  class = class(where$vals))
-    }
+    if (any(bool))
+        sapply(where,
+               function(x) structure(x[bool], class=class(x)),
+               simplify=FALSE)
 }
 
 lookAhead = function(select, where, fields, view_spec) {

@@ -66,12 +66,12 @@ levelDown = function(dt) {
     vals = unique(dt[[1]])
     len = length(dt)
     if (len > 1) {
-        structure(
+        do.call(
+            if (length(vals) > 1) OR else AND,
             lapply(vals, function(val) {
                 AND(structure(AND(val), names=n),
                     levelDown(dt[get(n) == val, 2:len, with=FALSE]))
-            }),
-            class = ifelse(length(vals) > 1, "OR", "AND")
+            })
         )
     } else
         structure(AND(vals), names=n)
@@ -117,7 +117,7 @@ whereNames = function(wheres) {
 
 getWheres = function(where, fields, leaf = TRUE) {
 
-    mapply(function(n, crit, i, len) {
+    unlist(mapply(function(n, crit, i, len, cls) {
         v = if (nzchar(n)) {
             if (is.list(crit)) {
                 op = crit[[1]]
@@ -158,12 +158,16 @@ getWheres = function(where, fields, leaf = TRUE) {
         } else {
             getWheres(crit, fields, leaf=leaf)
         }
-        if (len > 1 && length(v) > 1)
-            v = c('(', indentWith(v, ''), ')')
+
+        if (len > 1 && length(v) > 1) {
+            v = c(indentWith(v, ''), ')')
+            substr(v[1], 1, 1) = '('
+        }
+
         if (i < len) {
             vl = length(v)
-            v[vl] = paste(v[vl], class(where))
+            v[vl] = paste(v[vl], cls)
         }
         v
-    }, names(where), where, seq_along(where), length(where))
+    }, names(where), where, seq_along(where), length(where), class(where), SIMPLIFY=FALSE))
 }

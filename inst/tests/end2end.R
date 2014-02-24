@@ -3,7 +3,8 @@ tableFields = function(table) {
         crufty_db1.crfttabl_2z = c(
             id = 'crfty_id_mstr',
             name = 'lower(trim(trailing from crft_shrt_nm))',
-            cost = 'curr_avg_cst'
+            cost = 'curr_avg_cst',
+            category = 'cat'
         ),
         dw2.tb_react = c(
             date = "cast(reg_dt as date format 'yyyy-mm-dd')",
@@ -56,7 +57,7 @@ queriesEqual = function(x, y) {
 today = as.Date("2013-10-31")
 last_months_end = today - as.POSIXlt(today)$mday
 w = AND(date = list('>', last_months_end),
-         cost = list('<', 10))
+        cost = list('<', 10))
 w_place = AND(size = 'big')
 w_test = AND(test = c(1, 2, 7))
 
@@ -312,30 +313,97 @@ test_that("SQL handles cross-table OR", {
 
 test_that("SQL & anyRow handle complex where clause", {
     ref = "SELECT
-       a.\"place\"
+       e.\"place\",
+       \"date\",
+       sum(\"kpi1\") AS \"kpi1\",
+       sum(\"kpi1\") AS \"kpi1\"
        FROM
        (
           SELECT
-             cast(substring(full_place, 1, 3) as integer) AS \"place\",
-             char_bh AS \"size\"
+             \"place\",
+             \"date\",
+             \"kpi1\"
           FROM
-             dw2.tb_plc
-       ) AS a
-       LEFT JOIN (
+             (
+                SELECT
+                   plc_cd AS \"place\",
+                   cast(reg_dt as date format 'yyyy-mm-dd') AS \"date\",
+                   asdf AS \"kpi1\",
+                   target_nbr AS \"id\",
+                   floor(trs_cd / 7) AS \"reaction\",
+                   trs_cd mod 4 AS \"action\"
+                FROM
+                   dw2.tb_react
+             ) AS a
+             INNER JOIN (
+                SELECT
+                   crfty_id_mstr AS \"id\",
+                   cat AS \"category\"
+                FROM
+                   crufty_db1.crfttabl_2z
+             ) AS b
+             ON
+                a.\"id\" = b.\"id\"
+          WHERE
+             (  \"reaction\" = 0 AND
+                (  (  \"category\" = 'A' AND
+                      \"action\" = 1
+                   ) OR
+                   (  \"category\" = 'B' AND
+                      \"action\" = 1
+                   )
+                )
+             ) OR
+             (  \"reaction\" = 1 AND
+                (  (  \"category\" = 'A' AND
+                      \"action\" in (2, 1)
+                   ) OR
+                   (  \"category\" = 'B' AND
+                      \"action\" = 1
+                   ) OR
+                   (  \"category\" = 'E' AND
+                      \"action\" in (0, 3)
+                   ) OR
+                   (  \"category\" = 'H' AND
+                      \"action\" = 2
+                   )
+                )
+             )
+       ) AS e
+       INNER JOIN (
           SELECT
-             test_key mod 1000 AS \"place\",
-             floor(test_key / 1000) AS \"test\"
+             c.\"place\"
           FROM
-             dw2.tb_plc2
-       ) AS b
+             (
+                SELECT
+                   cast(substring(full_place, 1, 3) as integer) AS \"place\"
+                FROM
+                   dw2.tb_plc
+             ) AS c
+             LEFT JOIN (
+                SELECT
+                   test_key mod 1000 AS \"place\"
+                FROM
+                   dw2.tb_plc2
+                WHERE
+                   floor(test_key / 1000) = 372
+             ) AS d
+             ON
+                c.\"place\" = d.\"place\"
+       ) AS f
        ON
-          a.\"place\" = b.\"place\"
-       WHERE
-          \"size\" = 'big' OR
-          \"test\" in (1, 2, 7)"
+          e.\"place\" = f.\"place\"
+          GROUP BY e.\"place\", \"date\""
 
+    targets = data.table(
+        category = c('A', 'A', 'A', 'B', 'B', 'E', 'E', 'H'),
+        action = c(1, 2, 1, 1, 1, 0, 3, 2),
+        reaction = c(0, 1, 1, 0, 1, 1, 1, 1))
 
-    q = SQL(select='pla????????ce', from='@place', where=OR(w_place, w_test))
+    q = SQL(select = c('kpi1', 'kpi1'),
+            from = '@reactions',
+            where = AND(anyRow(targets), test=372),
+            groupby = c('place', 'date'))
 
     expect_true(queriesEqual(q, ref))
 })
