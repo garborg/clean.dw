@@ -60,6 +60,7 @@ w = AND(date = list('>', last_months_end),
         cost = list('<', 10))
 w_place = AND(size = 'big')
 w_test = AND(test = c(1, 2, 7))
+w_nonexistent = AND(fakevar = c(1, 2, 7))
 
 test_that("SQL handles raw table", {
     ref = "SELECT
@@ -96,6 +97,14 @@ test_that("SQL handles simple view", {
     q = SQL(select='place', from='@place', where=w_test)
 
     expect_true(queriesEqual(q, ref))
+})
+
+test_that("SQL throws if a nonexistent field is passed via 'select'", {
+    expect_error(SQL(select='plaaaaace', from='@place', where=w_test))
+})
+
+test_that("SQL throws if a nonexistent field is passed via 'where'", {
+    expect_error(SQL(select='place', from='@place', where=w_nonexistent))
 })
 
 test_that("SQL handles lazy join", {
@@ -264,6 +273,15 @@ test_that("SQL handles grouping", {
             groupby = c('id', 'action', 'reaction'))
 
     expect_true(queriesEqual(q, ref))
+})
+
+test_that("SQL throws if a nonexistent field is passed via 'groupby'", {
+    expect_error(
+        SQL(select = c('kpi1', avg='kpi2', min_kpi2.min='kpi2', count.count='kpi1'),
+            from = '@reactions',
+            where = AND(w, w_place, w_test),
+            groupby = c('iiiiiiddddddd', 'action', 'reaction'))
+    )
 })
 
 test_that("SQL handles OR", {

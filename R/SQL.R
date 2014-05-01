@@ -21,7 +21,17 @@ SQL = function(select, from, where=NULL, groupby=NULL) {
         where = list(vals = w, names = whereNames(w))
     }
 
-    q = qBuild(select = enquote(union(groupby, select)),
+    validnames = names(getFields(from))
+
+    selectnames = enquote(union(groupby, select))
+    allnames = unique(c(selectnames, unlist(where$names)))
+    namesfound = allnames %chin% validnames
+    if (!all(namesfound))
+        stop(paste('Invalid fields specified:', paste(allnames[!namesfound], collapse=', '),
+                   'Valid fields:.', paste(validnames, collapse=', '),
+                   sep='\n'))
+
+    q = qBuild(select = selectnames,
                from = from,
                where = where)$q
 
@@ -103,12 +113,6 @@ qBuild = function(select, from, where=NULL, aliased=0) {
 leaf = function(select, from, where, aliased) {
 
     fields = getFields(from)
-    fnames = names(fields)
-    if (!all(select %chin% fnames))
-        stop(paste('Selected fields:', paste(select, collapse=', '),
-                   'don\'t match options:.', paste(fnames, collapse=', '),
-                   sep='\n'))
-
     selects = fields[select]
     select_strs = paste(selects, 'AS', names(selects))
 
@@ -205,7 +209,7 @@ lookAhead = function(select, where, fields, view_spec) {
             where_leftover = subsetWhere(where, is_neither)
 
             all_where_join_names = if (length(where_join))
-                unique(do.call(c, where_join$names))
+                unique(unlist(where_join$names))
 
             i_where_join_names = intersect(all_where_join_names, fields_i)
             other_where_join_names = setdiff(all_where_join_names, fields_i)
