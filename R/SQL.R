@@ -185,14 +185,21 @@ lookAhead = function(select, where, fields, view_spec) {
         hide_i = enquote(view_spec[[i]]$hide)
         fields_i = fields_i[!names(fields_i) %chin% hide_i]
 
+        where_plus_i = where
+        where_i = view_spec[[i]]$where
+        if (length(where_i)) {
+            w = AND(where$vals, cleanWheres(where_i))
+            where_plus_i = list(vals = w, names = whereNames(w))
+        }
+
         join_i = view_spec[[i]]$join
         type_i = join_i$type
         on_i = enquote(join_i$on)
 
         #~ Divy wheres
         where_leaf = where_join = i_where_join_names = other_where_join_names = where_leftover = NULL
-        if (length(where)) {
-            wnames = where$names
+        if (length(where_plus_i)) {
+            wnames = where_plus_i$names
             is_any = sapply(wnames, function(ns) {
                 any(ns %chin% fields_i) &&
                 (type_i != "left" || !all(ns %chin% on_i))
@@ -204,9 +211,9 @@ lookAhead = function(select, where, fields, view_spec) {
             is_join = is_any & !is_leaf
             is_neither = !is_any
 
-            where_leaf = subsetWhere(where, is_leaf)
-            where_join = subsetWhere(where, is_join)
-            where_leftover = subsetWhere(where, is_neither)
+            where_leaf = subsetWhere(where_plus_i, is_leaf)
+            where_join = subsetWhere(where_plus_i, is_join)
+            where_leftover = subsetWhere(where_plus_i, is_neither)
 
             all_where_join_names = if (length(where_join))
                 unique(unlist(where_join$names))

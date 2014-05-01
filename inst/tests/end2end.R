@@ -35,9 +35,9 @@ viewSpec = function(name) {
             dw2.tb_plc2 = list(join = list(type='left', on='place', lazy=TRUE))
         ),
         '@reactions' = list(
-            dw2.tb_react = list(where = list(action=list('between', c(2, 5)))),
+            dw2.tb_react = list(where = AND(action = list('between', c(2, 5)))),
             crufty_db1.crfttabl_2z = list(
-                where = list(id=list('>', 99), cost=list('!=', NULL)),
+                where = AND(id = list('>', 99), cost = list('!=', NULL)),
                 join = list(type='inner', on='id')
             ),
             '@place' = list(hide = 'cost', join = list(type='inner', on='place'))
@@ -46,7 +46,8 @@ viewSpec = function(name) {
 }
 
 stripQuery = function(x) {
-    gsub("^[ ]|[ ]$", "", gsub("[\r\n\t ]+", " ", x))
+    gsub("^[ ]|[ ]$", "", gsub("[\r
+        \t ]+", " ", x))
 }
 
 queriesEqual = function(x, y) {
@@ -151,7 +152,8 @@ test_that("SQL handles complex view", {
                 FROM
                    dw2.tb_react
                 WHERE
-                   cast(reg_dt as date format 'yyyy-mm-dd') > '2013-09-30'
+                   cast(reg_dt as date format 'yyyy-mm-dd') > '2013-09-30' AND
+                   trs_cd mod 4 between 2 and 5
              ) AS a
              INNER JOIN (
                 SELECT
@@ -159,7 +161,9 @@ test_that("SQL handles complex view", {
                 FROM
                    crufty_db1.crfttabl_2z
                 WHERE
-                   curr_avg_cst < 10
+                   curr_avg_cst < 10 AND
+                   crfty_id_mstr > 99 AND
+                   curr_avg_cst not is null
              ) AS b
              ON
                 a.\"id\" = b.\"id\"
@@ -227,7 +231,8 @@ test_that("SQL handles grouping", {
                 FROM
                    dw2.tb_react
                 WHERE
-                   cast(reg_dt as date format 'yyyy-mm-dd') > '2013-09-30'
+                   cast(reg_dt as date format 'yyyy-mm-dd') > '2013-09-30' AND
+                   trs_cd mod 4 between 2 and 5
              ) AS a
              INNER JOIN (
                 SELECT
@@ -235,7 +240,9 @@ test_that("SQL handles grouping", {
                 FROM
                    crufty_db1.crfttabl_2z
                 WHERE
-                   curr_avg_cst < 10
+                   curr_avg_cst < 10 AND
+                   crfty_id_mstr > 99 AND
+                   curr_avg_cst not is null
              ) AS b
              ON
                 a.\"id\" = b.\"id\"
@@ -352,6 +359,8 @@ test_that("SQL & anyRow handle complex where clause", {
                    trs_cd mod 4 AS \"action\"
                 FROM
                    dw2.tb_react
+                WHERE
+                   trs_cd mod 4 between 2 and 5
              ) AS a
              INNER JOIN (
                 SELECT
@@ -359,6 +368,9 @@ test_that("SQL & anyRow handle complex where clause", {
                    cat AS \"category\"
                 FROM
                    crufty_db1.crfttabl_2z
+                WHERE
+                   crfty_id_mstr > 99 AND
+                   curr_avg_cst not is null
              ) AS b
              ON
                 a.\"id\" = b.\"id\"
