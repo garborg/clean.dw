@@ -282,6 +282,87 @@ test_that("SQL handles grouping", {
     expect_true(queriesEqual(q, ref))
 })
 
+test_that("SQL handles overlap of select and groupby clauses", {
+    ref = "SELECT
+       \"id\",
+       \"action\",
+       \"reaction\",
+       sum(\"kpi1\") AS \"kpi1\",
+       count(\"kpi1\") AS \"count\",
+       avg(\"kpi2\") AS \"kpi2\",
+       min(\"kpi2\") AS \"min_kpi2\"
+       FROM
+       (
+          SELECT
+             a.\"id\",
+             \"action\",
+             \"reaction\",
+             \"kpi1\",
+             \"kpi2\",
+             \"place\"
+          FROM
+             (
+                SELECT
+                   target_nbr AS \"id\",
+                   trs_cd mod 4 AS \"action\",
+                   floor(trs_cd / 7) AS \"reaction\",
+                   asdf AS \"kpi1\",
+                   fdas AS \"kpi2\",
+                   plc_cd AS \"place\"
+                FROM
+                   dw2.tb_react
+                WHERE
+                   cast(reg_dt as date format 'yyyy-mm-dd') > '2013-09-30' AND
+                   trs_cd mod 4 between 2 and 5
+             ) AS a
+             INNER JOIN (
+                SELECT
+                   crfty_id_mstr AS \"id\"
+                FROM
+                   crufty_db1.crfttabl_2z
+                WHERE
+                   curr_avg_cst < 10 AND
+                   crfty_id_mstr > 99 AND
+                   curr_avg_cst not is null
+             ) AS b
+             ON
+                a.\"id\" = b.\"id\"
+       ) AS e
+       INNER JOIN (
+          SELECT
+             c.\"place\"
+          FROM
+             (
+                SELECT
+                   cast(substring(full_place, 1, 3) as integer) AS \"place\"
+                FROM
+                   dw2.tb_plc
+                WHERE
+                   char_bh = 'big'
+             ) AS c
+             LEFT JOIN (
+                SELECT
+                   test_key mod 1000 AS \"place\"
+                FROM
+                   dw2.tb_plc2
+                WHERE
+                   floor(test_key / 1000) in (1, 2, 7)
+             ) AS d
+             ON
+                c.\"place\" = d.\"place\"
+       ) AS f
+       ON
+          e.\"place\" = f.\"place\"
+          GROUP BY \"id\", \"action\", \"reaction\""
+
+    q = SQL(select = c('id', 'action', 'kpi1', avg='kpi2', min_kpi2.min='kpi2', count.count='kpi1'),
+            from = '@reactions',
+            where = AND(w, w_place, w_test),
+            groupby = c('id', 'action', 'reaction'))
+
+    expect_true(queriesEqual(q, ref))
+})
+
 test_that("SQL throws if a nonexistent field is passed via 'groupby'", {
     expect_error(
         SQL(select = c('kpi1', avg='kpi2', min_kpi2.min='kpi2', count.count='kpi1'),
@@ -300,8 +381,9 @@ test_that("SQL handles OR", {
           char_bh = 'big' OR
           cost > 100000"
 
-    wo = OR(size="big", cost=list(">", 100000))
-    q = SQL(select='place', from='@place', where=wo)
+    q = SQL(select = 'place',
+            from = '@place',
+            where = OR(size="big", cost=list(">", 100000)))
 
     expect_true(queriesEqual(q, ref))
 })

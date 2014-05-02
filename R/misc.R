@@ -20,28 +20,93 @@ getFields = function(name, combine=TRUE, wormhole=FALSE) {
     }
 }
 
+#' Checks views defined in \code{viewSpec}
+#'
+#' \code{validateView} checks views against table fields and upstream views for
+#    typos and logical errors.
+#'
+#' @param vs object returned by viewSpec.
+#' @return NULL (Throws an error or prints reassurance depending on correctness).
 #' @export
 validateView = function(vs) {
     names = names(vs)
     fields = lapply(names, getFields, wormhole=TRUE)
 
-    prev_fields = fields[[1]]
-    r = NULL
-    for (i in seq_along(fields)[-1]) {
+    prev_fields = r = NULL
+
+    for (i in seq_along(fields)) {
         i_fields = fields[[i]]
-        overlap = intersect(prev_fields, i_fields)
-        on = enquote(vs[[i]]$join$on)
-        if (!setequal(overlap, on)) {
-            ri = sprintf("Overlap with '%s' (%s) doesn't match key (%s)",
-                         names(i),
-                         paste(overlap, collapse=', '),
-                         paste(on, collapse=', '))
-            r = c(r, ri)
+
+        i_where = vs[[i]]$where
+        if (length(i_where)) {
+            if (!isTRUE(class(wheres) %chin% c("AND", "OR"))) {
+                r[length(r) + 1] = sprintf(
+                    "Where clause for sub-view/table '%s' not an 'AND' or 'OR' object",
+                    names[i])
+            }
+
+            i_where_names = names(i_where)
+            where_valid = enquote(i_where_names) %chin% i_fields
+            if (!all(where_valid)) {
+                r[length(r) + 1] = sprintf(
+                    "Where clause fields ('%s') not in sub-view/table '%s'",
+                    paste(i_where_names[!where_valid], collapse = ", "),
+                    names[i])
+            }
         }
+
+        i_hide = vs[[i]]$hide
+        if (length(i_hide)) {
+            hide_valid = enquote(i_hide) %chin% i_fields
+            if (!all(hide_valid)) {
+                r[length(r) + 1] = sprintf(
+                    "Hide fields ('%s') not in sub-view/table '%s'",
+                    paste(i_hide[!hide_valid], collapse = ", "),
+                    names[i])
+            }
+            i_fields = setdiff(i_fields, enquote(i_hide))
+        }
+
+        i_join = vs[[i]]$join
+        if (i == 1) {
+            if (length(i_join)) {
+                r[length(r) + 1] = "The first sub-view/table can't have a join"
+            }
+        } else if (!length(i_join)) {
+            r[length(r) + 1] = sprintf(
+                "Join spec missing for sub-view/table '%s'",
+                names[i])
+        } else {
+            types = c("inner", "outer", "left", "right")
+            if (!isTRUE(i_join$type %chin% types)) {
+                r[length(r) + 1] = sprintf(
+                    "Join type for '%s' should be in: %s'",
+                    names[i],
+                    paste(types, collapse = ", "))
+            }
+
+            i_join_on = i_join$on
+
+            prev_valid = enquote(i_join_on) %chin% prev_fields
+            if (!all(prev_valid)) {
+                r[length(r) + 1] = sprintf(
+                    "Join keys ('%s') not available upstream from sub-view/table '%s'",
+                    paste(i_join_on[!prev_valid], collapse = ", "),
+                    names[i])
+            }
+
+            i_valid = enquote(i_join_on) %chin% i_fields
+            if (!all(i_valid)) {
+                r[length(r) + 1] = sprintf(
+                    "Join keys ('%s') not available in sub-view/table '%s'",
+                    paste(i_join_on[!i_valid], collapse = ", "),
+                    names[i])
+            }
+        }
+
         prev_fields = union(prev_fields, i_fields)
     }
-    r
 
-    if (length(r))
-        stop(paste(c('viewSpec errors:', r), collapse='\n'))
+    if (length(r)) stop(paste(c('viewSpec errors:', r), collapse='\n'))
+    cat("View looks O.K.\n")
 }
