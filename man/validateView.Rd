@@ -1,18 +1,19 @@
 \name{validateView}
 \alias{validateView}
-\title{Checks views defined in \code{viewSpec}}
+\title{Check correctness of a view defined in \code{VIEW_SCHEMA}}
 \usage{
-validateView(vs)
+validateView(name)
 }
 \arguments{
-  \item{vs}{object returned by viewSpec.}
+  \item{name}{view name.}
 }
 \value{
 NULL (Throws an error or prints reassurance depending on
 correctness).
 }
 \description{
-\code{validateView} checks views against table fields and
-upstream views for
+\code{validateView} checks views against
+\code{TABLE_SCHEMA} and upstream views for formatting,
+typos, and logical errors.
 }
 

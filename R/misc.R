@@ -1,6 +1,22 @@
 #' @export
-getFields = function(name, combine=TRUE, wormhole=FALSE) {
-    if (substring(name, 1, 1) == '@') {
+tableFields = function(name) TABLE_SCHEMA[[name]]
+
+#' @export
+viewSpec = function(name) VIEW_SCHEMA[[name]]
+
+#' List available fields for a table in \code{TABLE_SCHEMA} or a view in \code{VIEW_SCHEMA}
+#'
+#' \code{getFields} is used internally to write your queries and validate view,
+#'   definitions, but it's exported for use in middleware that exposes available
+#'   fields to users.
+#'
+#' @param name table/view name.
+#' @param combine for internal use
+#' @param wormhole also for internal use
+#' @return vector of available field names
+#' @export
+getFields = function(name, combine = TRUE, wormhole = FALSE) {
+    if (substring(name, 1, 1) == "@") {
         vs = viewSpec(name)
         fields = lapply(names(vs), function(name) {
             all = getFields(name, wormhole=TRUE)
@@ -14,21 +30,49 @@ getFields = function(name, combine=TRUE, wormhole=FALSE) {
         rf = enquoteNames(tableFields(name))
         if (wormhole) {
             rf = names(rf)
-            setattr(rf, 'names', rf)
+            setattr(rf, "names", rf)
         }
         rf
     }
 }
 
-#' Checks views defined in \code{viewSpec}
+#' Check correctness of a view defined in \code{VIEW_SCHEMA}
 #'
-#' \code{validateView} checks views against table fields and upstream views for
-#    typos and logical errors.
+#' \code{validateView} checks views against \code{TABLE_SCHEMA} and upstream
+#'   views for formatting, typos, and logical errors.
 #'
-#' @param vs object returned by viewSpec.
+#' @param name view name.
 #' @return NULL (Throws an error or prints reassurance depending on correctness).
 #' @export
-validateView = function(vs) {
+validateView = function(name) {
+    e = viewErrors(name)
+
+    if (!is.null(e)) {
+        stop(e)
+    } else {
+        cat(sprintf("View '%s' O.K.\n", name))
+    }
+}
+
+#' Check correctness of all views defined in \code{VIEW_SCHEMA}
+#'
+#' \code{validateViews} checks views against \code{TABLE_SCHEMA} and upstream
+#'   views for formatting, typos, and logical errors.
+#'
+#' @return NULL (Throws an error or prints reassurance depending on correctness).
+#' @export
+validateViews = function() {
+    es = unlist(sapply(names(VIEW_SCHEMA), viewErrors))
+
+    if (!is.null(es)) {
+        stop(paste(es, collapse = "\n"))
+    } else {
+        cat("All views O.K.\n")
+    }
+}
+
+viewErrors = function(name) {
+    vs = viewSpec(name)
     names = names(vs)
     fields = lapply(names, getFields, wormhole=TRUE)
 
@@ -39,7 +83,7 @@ validateView = function(vs) {
 
         i_where = vs[[i]]$where
         if (length(i_where)) {
-            if (!isTRUE(class(wheres) %chin% c("AND", "OR"))) {
+            if (!isTRUE(class(i_where) %chin% c("AND", "OR"))) {
                 r[length(r) + 1] = sprintf(
                     "Where clause for sub-view/table '%s' not an 'AND' or 'OR' object",
                     names[i])
@@ -107,6 +151,7 @@ validateView = function(vs) {
         prev_fields = union(prev_fields, i_fields)
     }
 
-    if (length(r)) stop(paste(c('viewSpec errors:', r), collapse='\n'))
-    cat("View looks O.K.\n")
+    if (length(r)) {
+        paste(c(sprintf("View '%s' errors:", name), r), collapse = "\n")
+    }
 }
