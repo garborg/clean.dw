@@ -127,7 +127,7 @@ Format: `SQL(select, from[, where, groupby])`
 Query parameters for examples:
 ```s
 today = Sys.Date()
-last_months_end = today - mday(today)  # require(data.table)
+last_months_end = today - as.POSIXlt(today)$mday
 
 w = AND(date = list('>', last_months_end),
         cost = list('<', 10))
